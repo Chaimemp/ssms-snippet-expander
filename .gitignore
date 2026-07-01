@@ -1,0 +1,11 @@
+# Build output
+bin/
+obj/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+
+# Local diagnostic log (runtime, not source)
+*.log
