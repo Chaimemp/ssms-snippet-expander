@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet">
+  <CodeSnippet Format="1.0.0">
+    <Header>
+      <Title>GROUP BY</Title>
+      <Shortcut>gb</Shortcut>
+      <Description>GROUP BY column</Description>
+      <Author>Custom</Author>
+      <SnippetTypes>
+        <SnippetType>Expansion</SnippetType>
+      </SnippetTypes>
+    </Header>
+    <Snippet>
+      <Declarations>
+        <Literal>
+          <ID>Column</ID>
+          <ToolTip>Column</ToolTip>
+          <Default>Column</Default>
+        </Literal>
+      </Declarations>
+      <Code Language="SQL"><![CDATA[GROUP BY $Column$end$]]></Code>
+    </Snippet>
+  </CodeSnippet>
+</CodeSnippets>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet">
+  <CodeSnippet Format="1.0.0">
+    <Header>
+      <Title>CREATE PROCEDURE</Title>
+      <Shortcut>cp</Shortcut>
+      <Description>Create a stored procedure</Description>
+      <Author>Custom</Author>
+      <SnippetTypes>
+        <SnippetType>Expansion</SnippetType>
+      </SnippetTypes>
+    </Header>
+    <Snippet>
+      <Declarations>
+        <Literal>
+          <ID>ProcName</ID>
+          <ToolTip>Procedure name</ToolTip>
+          <Default>usp_ProcName</Default>
+        </Literal>
+        <Literal>
+          <ID>Param</ID>
+          <ToolTip>Parameter</ToolTip>
+          <Default>@Param1</Default>
+        </Literal>
+        <Literal>
+          <ID>DataType</ID>
+          <ToolTip>Data type</ToolTip>
+          <Default>INT</Default>
+        </Literal>
+      </Declarations>
+      <Code Language="SQL"><![CDATA[CREATE OR ALTER PROCEDURE [dbo].[$ProcName$]
+    $Param$ $DataType$
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    $end$
+END]]></Code>
+    </Snippet>
+  </CodeSnippet>
+</CodeSnippets>

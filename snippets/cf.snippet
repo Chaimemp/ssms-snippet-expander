@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet">
+  <CodeSnippet Format="1.0.0">
+    <Header>
+      <Title>CREATE FUNCTION</Title>
+      <Shortcut>cf</Shortcut>
+      <Description>Create a scalar function</Description>
+      <Author>Custom</Author>
+      <SnippetTypes>
+        <SnippetType>Expansion</SnippetType>
+      </SnippetTypes>
+    </Header>
+    <Snippet>
+      <Declarations>
+        <Literal>
+          <ID>FuncName</ID>
+          <ToolTip>Function name</ToolTip>
+          <Default>fn_FuncName</Default>
+        </Literal>
+        <Literal>
+          <ID>Param</ID>
+          <ToolTip>Parameter</ToolTip>
+          <Default>@Param1</Default>
+        </Literal>
+        <Literal>
+          <ID>DataType</ID>
+          <ToolTip>Input data type</ToolTip>
+          <Default>INT</Default>
+        </Literal>
+        <Literal>
+          <ID>ReturnType</ID>
+          <ToolTip>Return type</ToolTip>
+          <Default>INT</Default>
+        </Literal>
+      </Declarations>
+      <Code Language="SQL"><![CDATA[CREATE OR ALTER FUNCTION [dbo].[$FuncName$]($Param$ $DataType$)
+RETURNS $ReturnType$
+AS
+BEGIN
+    RETURN $end$
+END]]></Code>
+    </Snippet>
+  </CodeSnippet>
+</CodeSnippets>

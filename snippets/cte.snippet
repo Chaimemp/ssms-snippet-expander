@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet">
+  <CodeSnippet Format="1.0.0">
+    <Header>
+      <Title>CTE WITH AS</Title>
+      <Shortcut>cte</Shortcut>
+      <Description>Common Table Expression</Description>
+      <Author>Custom</Author>
+      <SnippetTypes>
+        <SnippetType>Expansion</SnippetType>
+      </SnippetTypes>
+    </Header>
+    <Snippet>
+      <Declarations>
+        <Literal>
+          <ID>CTEName</ID>
+          <ToolTip>CTE name</ToolTip>
+          <Default>CTE</Default>
+        </Literal>
+        <Literal>
+          <ID>Column</ID>
+          <ToolTip>Columns</ToolTip>
+          <Default>*</Default>
+        </Literal>
+        <Literal>
+          <ID>TableName</ID>
+          <ToolTip>Table name</ToolTip>
+          <Default>TableName</Default>
+        </Literal>
+      </Declarations>
+      <Code Language="SQL"><![CDATA[WITH [$CTEName$] AS
+(
+    SELECT $Column$
+    FROM [$TableName$]
+)
+SELECT *
+FROM [$CTEName$]$end$]]></Code>
+    </Snippet>
+  </CodeSnippet>
+</CodeSnippets>

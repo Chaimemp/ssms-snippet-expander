@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet">
+  <CodeSnippet Format="1.0.0">
+    <Header>
+      <Title>IS NOT NULL</Title>
+      <Shortcut>isnl</Shortcut>
+      <Description>IS NOT NULL check</Description>
+      <Author>Custom</Author>
+      <SnippetTypes>
+        <SnippetType>Expansion</SnippetType>
+      </SnippetTypes>
+    </Header>
+    <Snippet>
+      <Declarations>
+        <Literal>
+          <ID>Column</ID>
+          <ToolTip>Column name</ToolTip>
+          <Default>Column1</Default>
+        </Literal>
+      </Declarations>
+      <Code Language="SQL"><![CDATA[$Column$ IS NOT NULL$end$]]></Code>
+    </Snippet>
+  </CodeSnippet>
+</CodeSnippets>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet">
+  <CodeSnippet Format="1.0.0">
+    <Header>
+      <Title>DELETE FROM</Title>
+      <Shortcut>df</Shortcut>
+      <Description>DELETE FROM table WHERE condition</Description>
+      <Author>Custom</Author>
+      <SnippetTypes>
+        <SnippetType>Expansion</SnippetType>
+      </SnippetTypes>
+    </Header>
+    <Snippet>
+      <Declarations>
+        <Literal>
+          <ID>TableName</ID>
+          <ToolTip>Table name</ToolTip>
+          <Default>TableName</Default>
+        </Literal>
+        <Literal>
+          <ID>Condition</ID>
+          <ToolTip>WHERE condition</ToolTip>
+          <Default>Id = @Id</Default>
+        </Literal>
+      </Declarations>
+      <Code Language="SQL"><![CDATA[DELETE FROM [$TableName$]
+WHERE $Condition$end$]]></Code>
+    </Snippet>
+  </CodeSnippet>
+</CodeSnippets>

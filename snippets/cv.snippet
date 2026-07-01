@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet">
+  <CodeSnippet Format="1.0.0">
+    <Header>
+      <Title>CREATE VIEW</Title>
+      <Shortcut>cv</Shortcut>
+      <Description>Create a view</Description>
+      <Author>Custom</Author>
+      <SnippetTypes>
+        <SnippetType>Expansion</SnippetType>
+      </SnippetTypes>
+    </Header>
+    <Snippet>
+      <Declarations>
+        <Literal>
+          <ID>ViewName</ID>
+          <ToolTip>View name</ToolTip>
+          <Default>vw_ViewName</Default>
+        </Literal>
+        <Literal>
+          <ID>Column</ID>
+          <ToolTip>Columns</ToolTip>
+          <Default>*</Default>
+        </Literal>
+        <Literal>
+          <ID>TableName</ID>
+          <ToolTip>Table name</ToolTip>
+          <Default>TableName</Default>
+        </Literal>
+      </Declarations>
+      <Code Language="SQL"><![CDATA[CREATE OR ALTER VIEW [dbo].[$ViewName$]
+AS
+    SELECT $Column$
+    FROM [$TableName$]$end$]]></Code>
+    </Snippet>
+  </CodeSnippet>
+</CodeSnippets>

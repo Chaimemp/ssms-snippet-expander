@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet">
+  <CodeSnippet Format="1.0.0">
+    <Header>
+      <Title>SELECT TOP 10</Title>
+      <Shortcut>st10</Shortcut>
+      <Description>SELECT TOP 10 * FROM [table]</Description>
+      <Author>Custom</Author>
+      <SnippetTypes>
+        <SnippetType>Expansion</SnippetType>
+      </SnippetTypes>
+    </Header>
+    <Snippet>
+      <Declarations>
+        <Literal>
+          <ID>TableName</ID>
+          <ToolTip>Table name</ToolTip>
+          <Default>TableName</Default>
+        </Literal>
+      </Declarations>
+      <Code Language="SQL"><![CDATA[SELECT TOP 10 * FROM [$TableName$]$end$]]></Code>
+    </Snippet>
+  </CodeSnippet>
+</CodeSnippets>

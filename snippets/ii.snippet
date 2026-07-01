@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet">
+  <CodeSnippet Format="1.0.0">
+    <Header>
+      <Title>INSERT INTO</Title>
+      <Shortcut>ii</Shortcut>
+      <Description>INSERT INTO table (cols) VALUES (vals)</Description>
+      <Author>Custom</Author>
+      <SnippetTypes>
+        <SnippetType>Expansion</SnippetType>
+      </SnippetTypes>
+    </Header>
+    <Snippet>
+      <Declarations>
+        <Literal>
+          <ID>TableName</ID>
+          <ToolTip>Table name</ToolTip>
+          <Default>TableName</Default>
+        </Literal>
+        <Literal>
+          <ID>Column</ID>
+          <ToolTip>Column(s)</ToolTip>
+          <Default>Column1</Default>
+        </Literal>
+        <Literal>
+          <ID>Value</ID>
+          <ToolTip>Value(s)</ToolTip>
+          <Default>@Value1</Default>
+        </Literal>
+      </Declarations>
+      <Code Language="SQL"><![CDATA[INSERT INTO [$TableName$] ($Column$)
+VALUES ($Value$)$end$]]></Code>
+    </Snippet>
+  </CodeSnippet>
+</CodeSnippets>

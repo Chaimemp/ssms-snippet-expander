@@ -10,8 +10,11 @@ internal static class Program
     // Top-level statements don't mark the entry point [STAThread], so we use an
     // explicit STA Main — otherwise Clipboard.SetText throws and nothing pastes.
     [STAThread]
-    static void Main()
+    static void Main(string[] args)
     {
+        // Diagnostic logging is opt-in (pass --debug) so end users get a quiet app.
+        MainForm.DebugLogging = args.Contains("--debug", StringComparer.OrdinalIgnoreCase);
+
         using var mutex = new Mutex(true, @"Global\SsmsSnippetExpander_SingleInstance", out bool isFirst);
         if (!isFirst)
         {
@@ -85,11 +88,14 @@ partial class MainForm : Form
     nint _cachedHwnd;
     bool _cachedIsSsms;
 
+    internal static bool DebugLogging;
+
     static readonly string LogPath =
         Path.Combine(Path.GetTempPath(), "SsmsSnippetExpander.log");
 
     static void Log(string msg)
     {
+        if (!DebugLogging) return;
         try { File.AppendAllText(LogPath, $"{DateTime.Now:HH:mm:ss.fff}  {msg}{Environment.NewLine}"); }
         catch { }
     }

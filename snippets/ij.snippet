@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet">
+  <CodeSnippet Format="1.0.0">
+    <Header>
+      <Title>INNER JOIN</Title>
+      <Shortcut>ij</Shortcut>
+      <Description>INNER JOIN table ON condition</Description>
+      <Author>Custom</Author>
+      <SnippetTypes>
+        <SnippetType>Expansion</SnippetType>
+      </SnippetTypes>
+    </Header>
+    <Snippet>
+      <Declarations>
+        <Literal>
+          <ID>TableName</ID>
+          <ToolTip>Table name</ToolTip>
+          <Default>TableName</Default>
+        </Literal>
+        <Literal>
+          <ID>Alias</ID>
+          <ToolTip>Table alias</ToolTip>
+          <Default>t</Default>
+        </Literal>
+        <Literal>
+          <ID>Condition</ID>
+          <ToolTip>Join condition</ToolTip>
+          <Default>t.Id = source.Id</Default>
+        </Literal>
+      </Declarations>
+      <Code Language="SQL"><![CDATA[INNER JOIN [$TableName$] AS [$Alias$] ON $Condition$end$]]></Code>
+    </Snippet>
+  </CodeSnippet>
+</CodeSnippets>

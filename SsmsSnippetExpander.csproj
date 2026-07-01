@@ -8,5 +8,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>SsmsSnippetExpander</AssemblyName>
     <RootNamespace>SsmsSnippetExpander</RootNamespace>
+
+    <!-- Package / product metadata -->
+    <Product>SSMS Snippet Expander</Product>
+    <Version>1.0.0</Version>
+    <Description>Tray app that expands SQL Prompt-style shortcuts (ssf, st100, ...) in SQL Server Management Studio via a global keyboard hook.</Description>
+    <Authors>ChaimL</Authors>
   </PropertyGroup>
 </Project>

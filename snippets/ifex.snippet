@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet">
+  <CodeSnippet Format="1.0.0">
+    <Header>
+      <Title>IF EXISTS</Title>
+      <Shortcut>ifex</Shortcut>
+      <Description>IF EXISTS check</Description>
+      <Author>Custom</Author>
+      <SnippetTypes>
+        <SnippetType>Expansion</SnippetType>
+      </SnippetTypes>
+    </Header>
+    <Snippet>
+      <Declarations>
+        <Literal>
+          <ID>TableName</ID>
+          <ToolTip>Table name</ToolTip>
+          <Default>TableName</Default>
+        </Literal>
+        <Literal>
+          <ID>Condition</ID>
+          <ToolTip>Condition</ToolTip>
+          <Default>Id = @Id</Default>
+        </Literal>
+      </Declarations>
+      <Code Language="SQL"><![CDATA[IF EXISTS (SELECT 1 FROM [$TableName$] WHERE $Condition$)
+BEGIN
+    $end$
+END]]></Code>
+    </Snippet>
+  </CodeSnippet>
+</CodeSnippets>
