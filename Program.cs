@@ -25,7 +25,16 @@ internal static class Program
 
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
-        Application.Run(new MainForm());
+
+        try
+        {
+            Application.Run(new MainForm());
+        }
+        catch (InvalidOperationException ex)
+        {
+            MessageBox.Show($"{ex.Message} The app will exit.",
+                "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 }
 
@@ -42,7 +51,6 @@ partial class MainForm : Form
     const long IDLE_RESET_MS    = 2000;
     const int  VK_TAB           = 0x09;
     const int  VK_BACK          = 0x08;
-    const int  VK_RETURN        = 0x0D;
     const int  VK_SHIFT         = 0x10;
     const int  VK_CONTROL       = 0x11;
     const int  VK_CAPITAL       = 0x14;
@@ -51,6 +59,12 @@ partial class MainForm : Form
     const int  LLKHF_INJECTED   = 0x10;
     const uint KEYEVENTF_KEYUP  = 0x0002;
     const int  MAX_BUFFER       = 32;
+
+    // Timings (ms): let the suppressed Tab settle before pasting; let SSMS finish
+    // pasting before moving the caret; hold the clipboard long enough to paste.
+    const int  EXPAND_DELAY_MS      = 20;
+    const int  CARET_SETTLE_MS      = 70;
+    const int  CLIPBOARD_RESTORE_MS = 600;
 
     delegate nint LowLevelKeyboardProc(int nCode, nint wParam, nint lParam);
 
@@ -139,10 +153,12 @@ partial class MainForm : Form
         _mouseHook = SetWindowsHookExW(WH_MOUSE_LL,    _mouseProc, hMod, 0);
         if (_hook == 0)
         {
-            MessageBox.Show("Failed to install the keyboard hook. The app will exit.",
-                "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            Application.Exit();
-            return;
+            // Bail cleanly: releasing here and throwing lets Main show the error and
+            // exit. (Application.Exit() would be a no-op — the message loop isn't running yet.)
+            if (_mouseHook != 0) UnhookWindowsHookEx(_mouseHook);
+            _tray.Visible = false;
+            _tray.Dispose();
+            throw new InvalidOperationException("Failed to install the keyboard hook.");
         }
 
         Log($"=== Started. hook={_hook}, snippets={_snippets.Count}, keys=[{string.Join(",", _snippets.Keys)}] ===");
@@ -174,7 +190,7 @@ partial class MainForm : Form
                             int len = typed.Length;
                             _ = Task.Run(async () =>
                             {
-                                await Task.Delay(20);
+                                await Task.Delay(EXPAND_DELAY_MS);
                                 if (!IsDisposed)
                                 {
                                     try { Invoke(() => Expand(len, snippet!)); }
@@ -285,7 +301,7 @@ partial class MainForm : Form
         // select it, or to the $end$ marker. Deferred so SSMS finishes pasting first.
         if (snippet.LeftMoves > 0 || snippet.SelectLen > 0)
         {
-            _ = Task.Delay(70).ContinueWith(_ =>
+            _ = Task.Delay(CARET_SETTLE_MS).ContinueWith(_ =>
             {
                 if (!IsDisposed)
                 {
@@ -296,7 +312,7 @@ partial class MainForm : Form
 
         if (prev != null)
         {
-            _ = Task.Delay(600).ContinueWith(_ =>
+            _ = Task.Delay(CLIPBOARD_RESTORE_MS).ContinueWith(_ =>
             {
                 if (!IsDisposed)
                 {

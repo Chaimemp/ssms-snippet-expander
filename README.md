@@ -39,8 +39,8 @@ is focused, it watches for a known shortcut followed by Tab and pastes the expan
 ## Install
 
 ```powershell
-git clone https://github.com/<your-user>/SsmsSnippetExpander.git
-cd SsmsSnippetExpander
+git clone https://github.com/Chaimemp/ssms-snippet-expander.git
+cd ssms-snippet-expander
 .\Install.ps1            # copies the snippets and builds the app
 ```
 
