@@ -419,3 +419,21 @@ first time with `msbuild extension\...csproj /restore /p:Configuration=Release`
 - **Extension:** full `/t:Rebuild` (the `.vsct` changed) → exit 0,
   `SsmsSnippetExpander.Extension.vsix` (~26 KB). Only MSB3277 unification warnings.
 - Committed + pushed review pass #2. Still to do: install + test the VSIX in SSMS 22.
+
+### 2026-07-09 — Extension installed into SSMS 22, commands verified
+
+- **Double-click install was a no-op.** After the user double-clicked the `.vsix` (which
+  routed through the `VisualStudio.Launcher.vsix` handler), the extension never deployed:
+  `%LOCALAPPDATA%\Microsoft\SSMS\22.0_a29b2bf2\Extensions` held only cache files, the DLL
+  was absent from disk, and it hadn't landed in VS 18 either.
+- **Fixed with SSMS's own VSIXInstaller (silent):** closed SSMS, then
+  `& "…\SSMS 22\Release\Common7\IDE\VSIXInstaller.exe" /quiet <vsix>` → exit 0. DLL now at
+  `…\SSMS\22.0_a29b2bf2\Extensions\pavzkn3g.oum\SsmsSnippetExpander.Extension.dll` (v0.1.0.0).
+  Lesson: install SSMS extensions with SSMS's *own* VSIXInstaller so they target SSMS, not
+  VS 18 — double-clicking is unreliable and can silently no-op.
+- **Verified in SSMS:** launched with `/log`; all three commands show under the **Tools**
+  menu. SSMS 22 has no "Manage Extensions" UI (Extensions menu = just "Customize Menu…"),
+  so Tools is the check. ActivityLog's 6 errors are all pre-existing/unrelated (other
+  package GUIDs; ours never faulted).
+- Added a root `CLAUDE.md` (project memory) and refreshed `docs/CLAUDE_PROMPT_V3.md`
+  CURRENT STATE. Next: functional tests (Reload Snippets count, ssf/st100 Tab, F12, Ctrl+F12).

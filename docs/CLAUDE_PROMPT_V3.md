@@ -1,7 +1,7 @@
 # Prompt for Claude — Continue the "SSMS Snippet Expander" Project (v3)
 
 > Paste this whole file into a fresh Claude session (CLI or Cowork) to continue.
-> Supersedes CLAUDE_PROMPT_V2.md. Current as of 2026-07-09, commit `961fdc3`.
+> Supersedes CLAUDE_PROMPT_V2.md. Current as of 2026-07-09, commit `16b34b0`.
 
 ---
 
@@ -18,46 +18,56 @@ Shell is PowerShell. Use PowerShell syntax.
    UI Automation. Working and in use.
 2. VSIX extension (extension\, classic .NET Framework 4.7.2 VSIX targeting SSMS 22):
    same features in-process (real editor API, ServiceCache connection, SMO scripting,
-   Object Explorer TreeView, MEF Tab command filter). Builds clean; installed into
-   SSMS 22 but NOT yet verified/tested there.
+   Object Explorer TreeView, MEF Tab command filter). Builds clean; INSTALLED into
+   SSMS 22 and commands VERIFIED. Functional testing in progress.
 
-## CURRENT STATE (2026-07-09, HEAD = 961fdc3 on main, pushed)
+## CURRENT STATE (2026-07-09, HEAD = 16b34b0 on main, pushed)
 
 - Tray app: `dotnet build -c Release` => 0 warnings / 0 errors.
 - Extension: builds clean via msbuild (exit 0), output
   `extension\bin\Release\SsmsSnippetExpander.Extension.vsix` (~26 KB / 25,963 bytes).
-- Review pass #2 is committed (961fdc3): fixed word-under-caret bug in
+- Review pass #2 committed (961fdc3): fixed word-under-caret bug in
   `extension\GoToDefinitionService.cs` (F12 scripted the wrong object when the caret sat
   at the START of an identifier — now scans the line and picks the span containing the
   1-based caret column); added Tools > "Reload Snippets" command (Commands.vsct cmdid
   0x0102, wired in SnippetExpanderPackage.cs, `SnippetLibrary.Reload()` returns the
   count); added `.claude/` to `.gitignore`.
-- A corrupt `.git\index` (garbage UU entries) was repaired earlier with
-  `Remove-Item .git\index -Force; git reset` (working tree was already correct — no --hard).
-- The .vsix was just double-click-installed by the user. It does NOT appear on disk yet
-  (searched %LOCALAPPDATA%\Microsoft and the SSMS install tree) because the VSIX installer
-  STAGES the extension and SSMS finalizes it on next launch. SSMS had to be closed for the
-  install (done: `Stop-Process -Name Ssms -Force`). User is about to launch SSMS.
+- **INSTALL RESOLVED.** The earlier double-click install NEVER deployed (Extensions
+  folder had only cache files; DLL absent from disk; not in VS18 either). Fixed by
+  installing SILENTLY with SSMS's OWN VSIXInstaller (exit 0):
+  ```powershell
+  Stop-Process -Name Ssms -Force
+  & "C:\Program Files\Microsoft SQL Server Management Studio 22\Release\Common7\IDE\VSIXInstaller.exe" `
+    /quiet "<repo>\extension\bin\Release\SsmsSnippetExpander.Extension.vsix"
+  ```
+  DLL now on disk at `%LOCALAPPDATA%\Microsoft\SSMS\22.0_a29b2bf2\Extensions\`
+  `pavzkn3g.oum\SsmsSnippetExpander.Extension.dll` (v0.1.0.0).
+- **COMMANDS VERIFIED.** SSMS relaunched with `/log`; all three commands appear under the
+  **Tools** menu ("Script Object Under Caret (F12)", "Locate Object in Object Explorer
+  (Ctrl+F12)", "Reload Snippets (Snippet Expander)"). ActivityLog had 6 errors but ALL are
+  pre-existing/unrelated (other package GUIDs; ours is `{7A1E4C9D-…}` and never faulted).
+  NOTE: SSMS 22 has NO "Manage Extensions" UI — the Extensions menu only has "Customize
+  Menu…"; our commands are parented to `IDM_VS_MENU_TOOLS` in Commands.vsct, so Tools is
+  the place to look.
+- Corrupt `.git\index` (garbage UU entries) was repaired earlier with
+  `Remove-Item .git\index -Force; git reset` (working tree was fine — no --hard).
+- Tray app confirmed NOT running (no Tab conflict); no Startup shortcut.
+- Test server: VM-MSSQL01-DEV (SQL Server 2019, Windows auth EMPEON\ChaimL).
 
-## WHERE WE ARE / NEXT STEP
+## WHERE WE ARE / NEXT STEP — functional testing, one step at a time in SSMS
 
-The user is launching SSMS 22 to finalize + verify the extension. Guide them:
+Waiting on the user to run **Tools > Reload Snippets** and report the snippet COUNT
+(0 would explain a dead ssf+Tab). Remaining tests, in a connected query window:
 
-1. Extensions > Manage Extensions > Installed — confirm "SSMS Snippet Expander Extension"
-   is present + enabled.
-2. Tools menu — confirm the commands appear, incl. "Reload Snippets".
-3. In a query window connected to a server+db, test:
-   - `ssf` + Tab  => SELECT * FROM expansion
-   - `st100` + Tab => SELECT TOP 100 * FROM [TableName] with TableName selected
-   - F12 on a TABLE name => CREATE scripted to a new query window
-   - F12 on a PROC name  => CREATE scripted to a new query window
-   - Ctrl+F12 on an object name => selected in Object Explorer
-   - Tools > Reload Snippets => shows a count
+- type `ssf` then Tab  => `SELECT * FROM ⎸ WITH (NOLOCK)`
+- type `st100` then Tab => `SELECT TOP 100 * FROM [TableName]` with TableName selected
+- caret on a TABLE name, F12  => CREATE scripted to a new query window
+- caret on a PROC name, F12   => CREATE scripted to a new query window
+- Ctrl+F12 on an object name  => selected in Object Explorer
 
-After confirming the DLL landed, re-scan to locate the installed copy.
-If the extension is NOT in the Installed list, read the SSMS ActivityLog
-(%APPDATA%\Microsoft\SQL Server Management Studio\22.0\ActivityLog.xml or the SSMS
-AppData folder) to see why it was skipped.
+Rebuild/reinstall loop for fixes: `msbuild … /restore /p:Configuration=Release`
+(add `/t:Rebuild` after .vsct changes) → close SSMS → `VSIXInstaller.exe /quiet <vsix>`
+→ relaunch SSMS → have the user retest.
 
 ## RUNTIME FAILURES ARE EXPECTED TERRITORY
 
