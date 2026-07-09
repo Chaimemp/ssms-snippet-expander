@@ -8,6 +8,7 @@ packages/
 .vs/
 .idea/
 *.user
+.claude/
 
 # Local diagnostic log (runtime, not source)
 *.log

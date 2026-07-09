@@ -23,6 +23,12 @@
           <ButtonText>Locate Object in Object Explorer (Ctrl+F12)</ButtonText>
         </Strings>
       </Button>
+      <Button guid="guidCmdSet" id="cmdidReloadSnippets" priority="0x0102" type="Button">
+        <Parent guid="guidCmdSet" id="grpMain" />
+        <Strings>
+          <ButtonText>Reload Snippets (Snippet Expander)</ButtonText>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -39,6 +45,7 @@
       <IDSymbol name="grpMain" value="0x1020" />
       <IDSymbol name="cmdidScriptObject" value="0x0100" />
       <IDSymbol name="cmdidLocateInOE" value="0x0101" />
+      <IDSymbol name="cmdidReloadSnippets" value="0x0102" />
     </GuidSymbol>
     <!-- VS text editor factory GUID -->
     <GuidSymbol name="guidTextEditor" value="{8B382828-6202-11D1-8870-0000F87579D2}" />

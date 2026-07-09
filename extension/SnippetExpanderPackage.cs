@@ -22,8 +22,9 @@ namespace SsmsSnippetExpander.Extension
     {
         public const string PackageGuidString = "7A1E4C9D-3B52-4F8E-9C47-D2A8F0B6E5A1";
         public static readonly Guid CommandSet = new Guid("2F6B9E14-8D07-4C53-A9B2-51E3C7D0F8A6");
-        public const int CmdIdScriptObject = 0x0100;
-        public const int CmdIdLocateInOE   = 0x0101;
+        public const int CmdIdScriptObject   = 0x0100;
+        public const int CmdIdLocateInOE     = 0x0101;
+        public const int CmdIdReloadSnippets = 0x0102;
 
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
@@ -32,8 +33,9 @@ namespace SsmsSnippetExpander.Extension
             var mcs = (OleMenuCommandService)await GetServiceAsync(typeof(IMenuCommandService));
             if (mcs == null) return;
 
-            mcs.AddCommand(new MenuCommand(OnScriptObject, new CommandID(CommandSet, CmdIdScriptObject)));
-            mcs.AddCommand(new MenuCommand(OnLocateInOE,   new CommandID(CommandSet, CmdIdLocateInOE)));
+            mcs.AddCommand(new MenuCommand(OnScriptObject,   new CommandID(CommandSet, CmdIdScriptObject)));
+            mcs.AddCommand(new MenuCommand(OnLocateInOE,     new CommandID(CommandSet, CmdIdLocateInOE)));
+            mcs.AddCommand(new MenuCommand(OnReloadSnippets, new CommandID(CommandSet, CmdIdReloadSnippets)));
         }
 
         void OnScriptObject(object sender, EventArgs e)
@@ -59,6 +61,19 @@ namespace SsmsSnippetExpander.Extension
             catch (Exception ex)
             {
                 ShowError("Locate in Object Explorer failed", ex);
+            }
+        }
+
+        void OnReloadSnippets(object sender, EventArgs e)
+        {
+            try
+            {
+                int count = SnippetLibrary.Reload();
+                ShowInfo(count + " snippets loaded.");
+            }
+            catch (Exception ex)
+            {
+                ShowError("Reload Snippets failed", ex);
             }
         }
 

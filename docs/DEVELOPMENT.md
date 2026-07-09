@@ -387,3 +387,35 @@ first time with `msbuild extension\...csproj /restore /p:Configuration=Release`
 - Result: `SsmsSnippetExpander.Extension.vsix` (~25 KB) builds, exit 0. Remaining
   MSB3277 output is only VS 17-vs-18 assembly-unification **warnings** (non-fatal).
   Not yet installed/tested in SSMS.
+
+### 2026-07-09 — Review pass #2 (post-compile) + working-tree repair
+
+- **Local git damage repaired (files only):** the working tree had drifted from HEAD
+  (truncated `.gitignore`, stale `DEVELOPMENT.md`, old `SqlPackageBase.dll`, EOL noise
+  in all snippets) plus a corrupt index with garbage `UU` entries. Restored every
+  differing file from `HEAD` blobs. The **index itself still needs**
+  `Remove-Item .git\index -Force; git reset` run natively (sandbox can't write .git).
+- **Extension `GetWordUnderCaret` bug fixed:** caret at the *start* of a word made
+  `WordLeft(1)` jump to the previous word → F12 scripted the wrong object. Now scans
+  the whole line and picks the identifier whose span contains the caret column
+  (`LineCharOffset` is 1-based).
+- **New Tools → "Reload Snippets" command** (cmdid 0x0102) so .snippet edits don't
+  require an SSMS restart; `SnippetLibrary.Reload()` returns the count for feedback.
+- `.gitignore`: added `.claude/`.
+- Reviewed and deliberately left as-is: `Application.DoEvents` polling in
+  `ObjectExplorerLocator` (standard pattern for lazy OE nodes), name-escaped inline SQL
+  in the extension's `ResolveObject` (server-side, single quoted literal, escaped),
+  text-only clipboard restore in the tray app (documented limitation), MSB3277
+  unification warnings (benign).
+
+### 2026-07-09 — Index repaired, both components rebuilt, review pass #2 committed
+
+- **Git index repaired natively:** `Remove-Item .git\index -Force` +
+  `git reset` rebuilt the index cleanly from HEAD; the garbage `UU` entries are gone and
+  `git status` shows only the real review-pass-#2 files. No `--hard` (working tree was
+  already correct).
+- **Verified lib DLLs** still `22.1.2.0` (match this SSMS install) before building.
+- **Tray app:** `dotnet build -c Release` → 0 warnings / 0 errors.
+- **Extension:** full `/t:Rebuild` (the `.vsct` changed) → exit 0,
+  `SsmsSnippetExpander.Extension.vsix` (~26 KB). Only MSB3277 unification warnings.
+- Committed + pushed review pass #2. Still to do: install + test the VSIX in SSMS 22.

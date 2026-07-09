@@ -1,4 +1,7 @@
-# Full Prompt for Claude — SSMS Snippet Expander (v2)
+# Full Prompt for Claude — SSMS Snippet Expander (v2 — superseded)
+
+> **⚠️ Superseded.** Kept for history. Use [`CLAUDE_PROMPT_V3.md`](CLAUDE_PROMPT_V3.md)
+> instead — it covers the F12/Ctrl+F12 features and the SSMS 22 VSIX extension.
 
 Paste everything from the `---` line down into a fresh Claude session as your message. This is the
 **single authoritative "continue this project" prompt** — it was written after reading the actual

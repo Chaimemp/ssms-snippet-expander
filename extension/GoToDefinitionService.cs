@@ -112,18 +112,30 @@ namespace SsmsSnippetExpander.Extension
             if (dte == null || dte.ActiveDocument == null) return null;
 
             TextSelection sel = (TextSelection)dte.ActiveDocument.Selection;
-            string text = sel.Text;
-            if (string.IsNullOrEmpty(text))
+            if (!string.IsNullOrEmpty(sel.Text))
             {
-                EditPoint left = sel.ActivePoint.CreateEditPoint();
-                if (!left.AtStartOfLine) left.WordLeft(1);
-                EditPoint right = left.CreateEditPoint();
-                right.WordRight(1);
-                text = left.GetText(right);
+                Match selMatch = Regex.Match(sel.Text, @"[A-Za-z_@#][A-Za-z0-9_@#$]*");
+                return selMatch.Success ? selMatch.Value : null;
             }
 
-            Match m = Regex.Match(text ?? "", @"[A-Za-z_@#][A-Za-z0-9_@#$]*");
-            return m.Success ? m.Value : null;
+            // Deterministic word-at-caret: scan the whole line and pick the identifier
+            // whose span contains (or ends exactly at) the caret column. Avoids the
+            // WordLeft/WordRight edge case where a caret at the START of a word would
+            // resolve to the previous word.
+            EditPoint caret     = sel.ActivePoint.CreateEditPoint();
+            EditPoint lineStart = sel.ActivePoint.CreateEditPoint();
+            lineStart.StartOfLine();
+            EditPoint lineEnd   = sel.ActivePoint.CreateEditPoint();
+            lineEnd.EndOfLine();
+
+            string line = lineStart.GetText(lineEnd) ?? "";
+            int column  = caret.LineCharOffset - 1; // LineCharOffset is 1-based
+
+            foreach (Match m in Regex.Matches(line, @"[A-Za-z_@#][A-Za-z0-9_@#$]*"))
+            {
+                if (column >= m.Index && column <= m.Index + m.Length) return m.Value;
+            }
+            return null;
         }
 
         // ── Connection of the ACTIVE window — the big win over the tray app ────

@@ -65,6 +65,6 @@ Restart SSMS. The commands also appear under **Tools** so you can verify loading
 - The Tab filter is registered for all editable text views ("text" content type),
   which in SSMS means query windows; if it ever fires somewhere unwanted, the
   content-type attribute in `TabExpansionFilter.cs` is the knob to tighten.
-- Snippets load once per SSMS session (no Reload command yet — restart SSMS after
-  editing .snippet files).
+- After editing .snippet files, run **Tools → Reload Snippets (Snippet Expander)** —
+  no SSMS restart needed.
 - Triggers and cross-database objects aren't handled.

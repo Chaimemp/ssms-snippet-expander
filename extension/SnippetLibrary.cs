@@ -35,9 +35,13 @@ namespace SsmsSnippetExpander.Extension
             }
         }
 
-        public static void Reload()
+        public static int Reload()
         {
-            lock (Sync) { _snippets = Load(); }
+            lock (Sync)
+            {
+                _snippets = Load();
+                return _snippets.Count;
+            }
         }
 
         static Dictionary<string, ExpandedSnippet> Load()
