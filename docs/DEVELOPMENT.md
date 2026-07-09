@@ -361,3 +361,29 @@ Code review pass over `Program.cs`; all fixes verified by a successful Release b
 - Don't run the tray app and the extension simultaneously — both expand on Tab.
 - `Install.ps1` now stops a running tray instance before building (exe lock).
 - Once the extension proves out on SSMS 22, the tray app retires.
+
+### 2026-07-09 — First successful VSIX compile
+
+Committed/pushed the F12 work + extension scaffold, verified the tray app
+(`dotnet build -c Release` → 0/0), then got the extension to compile for the
+first time with `msbuild extension\...csproj /restore /p:Configuration=Release`
+(VS 18 Community, `MSBuild\Current\Bin\MSBuild.exe`; SSMS 22 build **22.1.2.0** at
+`C:\Program Files\Microsoft SQL Server Management Studio 22\Release\Common7\IDE` —
+`SsmsPath` in the csproj was already correct). Fixes:
+
+- **`System.Xml.Linq` missing** (CS1069, `SnippetLibrary.XDocument`) → added the
+  `System.Xml.Linq` framework reference.
+- **`System.Design` missing** (CS0012, `MenuCommandService` / `OleMenuCommandService.
+  AddCommand`) → added the `System.Design` framework reference.
+- **`Microsoft.Data.SqlClient` missing** (CS0012, `SqlConnection` in
+  `GoToDefinitionService`) → added a reference to
+  `$(SsmsPath)\Microsoft.Data.SqlClient.dll` (Private=False; host provides it).
+- **CS1705 RegSvrEnum version clash:** the repo's `lib\SqlWorkbench.Interfaces.dll` /
+  `SqlPackageBase.dll` were build **22.3.24.0** (compiled against RegSvrEnum
+  **v18.100**), but *this* SSMS install ships RegSvrEnum **v17.100** — the lib DLLs
+  were from a newer SSMS 22 servicing build than what's installed. Replaced both
+  lib DLLs with the **22.1.2.0** copies from the SSMS IDE folder (per the
+  replace-outdated-lib-DLLs rule); clash gone.
+- Result: `SsmsSnippetExpander.Extension.vsix` (~25 KB) builds, exit 0. Remaining
+  MSB3277 output is only VS 17-vs-18 assembly-unification **warnings** (non-fatal).
+  Not yet installed/tested in SSMS.
