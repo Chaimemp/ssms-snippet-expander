@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <Extern href="stdidcmd.h" />
+  <Extern href="vsshlids.h" />
+
+  <Commands package="guidPackage">
+    <Groups>
+      <Group guid="guidCmdSet" id="grpMain" priority="0x0600">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_TOOLS" />
+      </Group>
+    </Groups>
+
+    <Buttons>
+      <Button guid="guidCmdSet" id="cmdidScriptObject" priority="0x0100" type="Button">
+        <Parent guid="guidCmdSet" id="grpMain" />
+        <Strings>
+          <ButtonText>Script Object Under Caret (F12)</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidCmdSet" id="cmdidLocateInOE" priority="0x0101" type="Button">
+        <Parent guid="guidCmdSet" id="grpMain" />
+        <Strings>
+          <ButtonText>Locate Object in Object Explorer (Ctrl+F12)</ButtonText>
+        </Strings>
+      </Button>
+    </Buttons>
+  </Commands>
+
+  <!-- Bound in the text-editor scope so they beat any global F12 binding
+       while typing, and don't fire elsewhere. -->
+  <KeyBindings>
+    <KeyBinding guid="guidCmdSet" id="cmdidScriptObject" editor="guidTextEditor" key1="VK_F12" />
+    <KeyBinding guid="guidCmdSet" id="cmdidLocateInOE" editor="guidTextEditor" mod1="Control" key1="VK_F12" />
+  </KeyBindings>
+
+  <Symbols>
+    <GuidSymbol name="guidPackage" value="{7A1E4C9D-3B52-4F8E-9C47-D2A8F0B6E5A1}" />
+    <GuidSymbol name="guidCmdSet" value="{2F6B9E14-8D07-4C53-A9B2-51E3C7D0F8A6}">
+      <IDSymbol name="grpMain" value="0x1020" />
+      <IDSymbol name="cmdidScriptObject" value="0x0100" />
+      <IDSymbol name="cmdidLocateInOE" value="0x0101" />
+    </GuidSymbol>
+    <!-- VS text editor factory GUID -->
+    <GuidSymbol name="guidTextEditor" value="{8B382828-6202-11D1-8870-0000F87579D2}" />
+  </Symbols>
+</CommandTable>

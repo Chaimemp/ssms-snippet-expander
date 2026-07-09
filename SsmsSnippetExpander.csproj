@@ -4,15 +4,37 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>SsmsSnippetExpander</AssemblyName>
     <RootNamespace>SsmsSnippetExpander</RootNamespace>
 
     <!-- Package / product metadata -->
     <Product>SSMS Snippet Expander</Product>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Description>Tray app that expands SQL Prompt-style shortcuts (ssf, st100, ...) in SQL Server Management Studio via a global keyboard hook.</Description>
     <Authors>ChaimL</Authors>
   </PropertyGroup>
+
+  <!-- Ship the built-in shortcuts inside the exe so a standalone download works
+       even before any .snippet files are copied to the SSMS folder. -->
+  <ItemGroup>
+    <EmbeddedResource Include="snippets\*.snippet" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Full desktop framework (not just WinForms) for System.Windows.Automation,
+         used by the Ctrl+F12 Object Explorer navigation. -->
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App" />
+    <!-- F12 needs its own SQL connection to script objects. -->
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The VSIX extension is a separate project built with Visual Studio; keep it
+         out of this dotnet-SDK build. -->
+    <Compile Remove="extension\**" />
+    <EmbeddedResource Remove="extension\**" />
+    <None Remove="extension\**" />
+  </ItemGroup>
 </Project>

@@ -47,6 +47,8 @@ foreach ($dir in $ssmsDirs) {
 $exe = Join-Path $repo 'bin\Release\net8.0-windows\SsmsSnippetExpander.exe'
 if (-not $NoBuild) {
     if (Get-Command dotnet -ErrorAction SilentlyContinue) {
+        # A running instance locks the exe and fails the build.
+        Stop-Process -Name 'SsmsSnippetExpander' -Force -ErrorAction SilentlyContinue
         Write-Host 'Building (dotnet build -c Release)...' -ForegroundColor Cyan
         dotnet build (Join-Path $repo 'SsmsSnippetExpander.csproj') -c Release | Out-Null
         Write-Host "Built -> $exe" -ForegroundColor Green

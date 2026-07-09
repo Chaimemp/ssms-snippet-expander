@@ -55,9 +55,16 @@ partial class MainForm : Form
     const int  VK_CONTROL       = 0x11;
     const int  VK_CAPITAL       = 0x14;
     const int  VK_LEFT          = 0x25;
+    const int  VK_RIGHT         = 0x27;
+    const int  VK_C             = 0x43;
+    const int  VK_N             = 0x4E;
     const int  VK_V             = 0x56;
+    const int  VK_F8            = 0x77;
+    const int  VK_F12           = 0x7B;
     const int  LLKHF_INJECTED   = 0x10;
+    const int  LLKHF_ALTDOWN    = 0x20;
     const uint KEYEVENTF_KEYUP  = 0x0002;
+    const uint INPUT_KEYBOARD   = 1;
     const int  MAX_BUFFER       = 32;
 
     // Timings (ms): let the suppressed Tab settle before pasting; let SSMS finish
@@ -83,11 +90,48 @@ partial class MainForm : Form
     private static partial uint GetWindowThreadProcessId(nint hwnd, out uint pid);
     [LibraryImport("user32.dll")]
     private static partial short GetAsyncKeyState(int vk);
-    [LibraryImport("user32.dll")]
-    private static partial void keybd_event(byte vk, byte scan, uint flags, nint extra);
+    [LibraryImport("user32.dll", SetLastError = true)]
+    private static partial uint SendInput(uint cInputs, ReadOnlySpan<INPUT> pInputs, int cbSize);
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct KEYBDINPUT
+    {
+        public ushort wVk;
+        public ushort wScan;
+        public uint   dwFlags;
+        public uint   time;
+        public nint   dwExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct MOUSEINPUT
+    {
+        public int  dx;
+        public int  dy;
+        public uint mouseData;
+        public uint dwFlags;
+        public uint time;
+        public nint dwExtraInfo;
+    }
+
+    // MOUSEINPUT is the largest union member — including it sizes INPUT correctly.
+    [StructLayout(LayoutKind.Explicit)]
+    struct InputUnion
+    {
+        [FieldOffset(0)] public KEYBDINPUT ki;
+        [FieldOffset(0)] public MOUSEINPUT mi;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct INPUT
+    {
+        public uint       type;
+        public InputUnion u;
+    }
 
     // ── State ────────────────────────────────────────────────────────────────
     readonly NotifyIcon                 _tray;
+    readonly ToolStripMenuItem          _menuInfo;
     readonly nint                       _hook;
     readonly nint                       _mouseHook;
     readonly LowLevelKeyboardProc       _proc;        // keep refs — prevent GC collection
@@ -129,8 +173,8 @@ partial class MainForm : Form
         _snippets = LoadSnippets();
 
         var menu = new ContextMenuStrip();
-        var info = (ToolStripMenuItem)menu.Items.Add($"{_snippets.Count} snippets loaded");
-        info.Enabled = false;
+        _menuInfo = (ToolStripMenuItem)menu.Items.Add($"{_snippets.Count} snippets loaded");
+        _menuInfo.Enabled = false;
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Show shortcuts…", null, (_, _) => ShowStatus());
         menu.Items.Add("Reload snippets",       null, OnReload);
@@ -174,11 +218,37 @@ partial class MainForm : Form
             int  flags    = Marshal.ReadInt32(lParam + 8);
             bool injected = (flags & LLKHF_INJECTED) != 0;
 
-            if (!injected)
+            // Modifier keydowns (Shift while typing an uppercase letter, CapsLock, …)
+            // are not text — they must neither reset the buffer nor be added to it.
+            if (!injected && !IsModifierKey(vk))
             {
                 if (IsSsmsFocused())
                 {
-                    if (vk == VK_TAB && _buffer.Length > 0)
+                    // Ctrl/Alt chords (Ctrl+S, Ctrl+Z, Alt+Tab, …) are commands, not
+                    // typing: never expand on them, and drop whatever was buffered.
+                    bool alt  = (flags & LLKHF_ALTDOWN) != 0;
+                    bool ctrl = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+
+                    // F12 = script object under caret to a new window; Ctrl+F12 = locate
+                    // it in Object Explorer. Checked before the chord filter on purpose.
+                    if (vk == VK_F12)
+                    {
+                        _buffer.Clear();
+                        if (!alt && !_navBusy)
+                        {
+                            _navBusy = true;
+                            bool toObjectExplorer = ctrl;
+                            _ = Task.Run(() => GoToObjectAsync(toObjectExplorer));
+                        }
+                        return 1; // F12 is ours while SSMS is focused
+                    }
+
+                    if (alt || ctrl)
+                    {
+                        _buffer.Clear();
+                    }
+                    else if (vk == VK_TAB && _buffer.Length > 0 &&
+                             (GetAsyncKeyState(VK_SHIFT) & 0x8000) == 0) // Shift+Tab = unindent, not expand
                     {
                         var typed = _buffer.ToString();
                         _buffer.Clear();
@@ -204,17 +274,29 @@ partial class MainForm : Form
                     {
                         if (_buffer.Length > 0) _buffer.Length--;
                     }
-                    else if (vk is (>= 0x41 and <= 0x5A) or (>= 0x30 and <= 0x39)) // A–Z or 0–9
+                    else if (vk is (>= 0x41 and <= 0x5A) or (>= 0x30 and <= 0x39) or (>= 0x60 and <= 0x69)) // A–Z, 0–9, numpad 0–9
                     {
-                        // Reset if the user paused — stale characters from earlier
-                        // typing must not glue onto a fresh shortcut.
-                        long now = Environment.TickCount64;
-                        if (now - _lastKeyTick > IDLE_RESET_MS) _buffer.Clear();
-                        _lastKeyTick = now;
-
-                        if (_buffer.Length < MAX_BUFFER)
+                        if (vk is >= 0x30 and <= 0x39 && (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0)
                         {
-                            _buffer.Append(vk <= 0x39 ? (char)vk : ToChar(vk));
+                            _buffer.Clear(); // Shift+digit types a symbol (!, @, …), not the digit
+                        }
+                        else
+                        {
+                            // Reset if the user paused — stale characters from earlier
+                            // typing must not glue onto a fresh shortcut.
+                            long now = Environment.TickCount64;
+                            if (now - _lastKeyTick > IDLE_RESET_MS) _buffer.Clear();
+                            _lastKeyTick = now;
+
+                            if (_buffer.Length < MAX_BUFFER)
+                            {
+                                _buffer.Append(vk switch
+                                {
+                                    <= 0x39 => (char)vk,                 // top-row digit
+                                    >= 0x60 => (char)('0' + vk - 0x60),  // numpad digit
+                                    _       => ToChar(vk),               // letter
+                                });
+                            }
                         }
                     }
                     else
@@ -240,6 +322,10 @@ partial class MainForm : Form
         }
         return CallNextHookEx(_mouseHook, nCode, wParam, lParam);
     }
+
+    // Shift/Ctrl/Alt (generic + left/right variants), CapsLock, Win keys.
+    static bool IsModifierKey(int vk) =>
+        vk is VK_SHIFT or VK_CONTROL or 0x12 or VK_CAPITAL or 0x5B or 0x5C or (>= 0xA0 and <= 0xA5);
 
     static char ToChar(int vk)
     {
@@ -286,16 +372,21 @@ partial class MainForm : Form
             return; // couldn't take the clipboard — abort, leave text intact
         }
 
+        // Backspaces + Ctrl+V in a single SendInput call: the batch is inserted
+        // into the input stream atomically, so a user keystroke can't land in the
+        // middle of the sequence. (Paste handles newlines, brackets, any Unicode.)
+        var inputs = new INPUT[deleteCount * 2 + 4];
+        int n = 0;
         for (int i = 0; i < deleteCount; i++)
         {
-            Tap(VK_BACK);
+            inputs[n++] = Key(VK_BACK);
+            inputs[n++] = Key(VK_BACK, up: true);
         }
-
-        // Paste via Ctrl+V — handles newlines, brackets, and any Unicode.
-        keybd_event(VK_CONTROL, 0, 0, 0);
-        keybd_event(VK_V,       0, 0, 0);
-        keybd_event(VK_V,       0, KEYEVENTF_KEYUP, 0);
-        keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
+        inputs[n++] = Key(VK_CONTROL);
+        inputs[n++] = Key(VK_V);
+        inputs[n++] = Key(VK_V,       up: true);
+        inputs[n++] = Key(VK_CONTROL, up: true);
+        SendBatch(inputs);
 
         // After the paste lands, move the caret to the first field ($Literal$) and
         // select it, or to the $end$ marker. Deferred so SSMS finishes pasting first.
@@ -324,22 +415,40 @@ partial class MainForm : Form
 
     // The caret sits at the end of the pasted text. Walk it left to the target,
     // then (if selecting a field) hold Shift and walk left to highlight it.
+    // One atomic SendInput batch, so user keystrokes can't interleave.
     static void PositionCaret(int leftMoves, int selectLen)
     {
-        for (int i = 0; i < leftMoves; i++) Tap(VK_LEFT);
-
+        var inputs = new INPUT[leftMoves * 2 + (selectLen > 0 ? selectLen * 2 + 2 : 0)];
+        int n = 0;
+        for (int i = 0; i < leftMoves; i++)
+        {
+            inputs[n++] = Key(VK_LEFT);
+            inputs[n++] = Key(VK_LEFT, up: true);
+        }
         if (selectLen > 0)
         {
-            keybd_event(VK_SHIFT, 0, 0, 0);
-            for (int i = 0; i < selectLen; i++) Tap(VK_LEFT);
-            keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0);
+            inputs[n++] = Key(VK_SHIFT);
+            for (int i = 0; i < selectLen; i++)
+            {
+                inputs[n++] = Key(VK_LEFT);
+                inputs[n++] = Key(VK_LEFT, up: true);
+            }
+            inputs[n++] = Key(VK_SHIFT, up: true);
         }
+        SendBatch(inputs);
     }
 
-    static void Tap(int vk)
+    static INPUT Key(int vk, bool up = false) => new()
     {
-        keybd_event((byte)vk, 0, 0, 0);
-        keybd_event((byte)vk, 0, KEYEVENTF_KEYUP, 0);
+        type = INPUT_KEYBOARD,
+        u = new InputUnion { ki = new KEYBDINPUT { wVk = (ushort)vk, dwFlags = up ? KEYEVENTF_KEYUP : 0 } }
+    };
+
+    static void SendBatch(ReadOnlySpan<INPUT> inputs)
+    {
+        if (inputs.IsEmpty) return;
+        uint sent = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
+        if (sent != inputs.Length) Log($"SendInput: only {sent}/{inputs.Length} events sent");
     }
 
     static string? TryGetClipboardText()
@@ -364,7 +473,8 @@ partial class MainForm : Form
     {
         _snippets.Clear();
         foreach (var (k, v) in LoadSnippets()) _snippets[k] = v;
-        _tray.Text = TrayText();
+        _tray.Text     = TrayText();
+        _menuInfo.Text = $"{_snippets.Count} snippets loaded";
         Balloon($"Reloaded {_snippets.Count} snippets");
     }
 
@@ -383,6 +493,12 @@ partial class MainForm : Form
 
     void Balloon(string msg)
     {
+        // Callable from any thread (F12 navigation runs on the thread pool).
+        if (InvokeRequired)
+        {
+            try { BeginInvoke(() => Balloon(msg)); } catch { }
+            return;
+        }
         _tray.BalloonTipTitle = "SSMS Snippets";
         _tray.BalloonTipText  = msg;
         _tray.ShowBalloonTip(2500);
@@ -399,55 +515,75 @@ partial class MainForm : Form
     static Dictionary<string, Snippet> LoadSnippets()
     {
         var result = new Dictionary<string, Snippet>(StringComparer.OrdinalIgnoreCase);
-        XNamespace ns = "http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet";
 
-        // Documents can be OneDrive-redirected. SSMS uses the *physical* profile
-        // Documents folder, so scan both the profile path and the redirected one.
+        // 1. Built-in shortcuts embedded in the exe — so a standalone download works
+        //    even before any .snippet files are copied to the SSMS folder.
+        var asm = System.Reflection.Assembly.GetExecutingAssembly();
+        foreach (var name in asm.GetManifestResourceNames())
+        {
+            if (!name.EndsWith(".snippet", StringComparison.OrdinalIgnoreCase)) continue;
+            try
+            {
+                using var stream = asm.GetManifestResourceStream(name);
+                if (stream == null) continue;
+                AddSnippet(result, XDocument.Load(stream));
+            }
+            catch { /* skip malformed resource */ }
+        }
+
+        // 2. User snippets on disk override the built-ins and add new ones.
+        //    Documents can be OneDrive-redirected; SSMS uses the *physical* profile
+        //    folder, so scan both the profile path and the redirected one.
         var baseDirs = new[]
         {
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Documents"),
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
         }.Distinct(StringComparer.OrdinalIgnoreCase);
 
-        var ssmsDirs = new List<string>();
         foreach (var docs in baseDirs)
         {
+            List<string> ssmsDirs;
             try
             {
-                if (Directory.Exists(docs))
-                    ssmsDirs.AddRange(Directory.GetDirectories(docs, "SQL Server Management Studio*"));
+                if (!Directory.Exists(docs)) continue;
+                ssmsDirs = Directory.GetDirectories(docs, "SQL Server Management Studio*").ToList();
             }
-            catch { /* ignore inaccessible base dir */ }
-        }
+            catch { continue; /* inaccessible base dir */ }
 
-        foreach (var ssmsDir in ssmsDirs)
-        {
-            var dir = Path.Combine(ssmsDir, "Snippets", "My Shortcuts");
-            if (!Directory.Exists(dir)) continue;
-
-            foreach (var file in Directory.GetFiles(dir, "*.snippet"))
+            foreach (var ssmsDir in ssmsDirs)
             {
-                try
+                var dir = Path.Combine(ssmsDir, "Snippets", "My Shortcuts");
+                if (!Directory.Exists(dir)) continue;
+
+                foreach (var file in Directory.GetFiles(dir, "*.snippet"))
                 {
-                    var snippet = XDocument.Load(file).Descendants(ns + "CodeSnippet").FirstOrDefault();
-                    if (snippet == null) continue;
-
-                    var shortcut = snippet.Descendants(ns + "Shortcut").FirstOrDefault()?.Value?.Trim();
-                    if (string.IsNullOrEmpty(shortcut)) continue;
-
-                    var literals = snippet.Descendants(ns + "Literal").ToDictionary(
-                        l => l.Element(ns + "ID")?.Value      ?? "",
-                        l => l.Element(ns + "Default")?.Value ?? "");
-
-                    var code = snippet.Descendants(ns + "Code").FirstOrDefault()?.Value;
-                    if (code == null) continue;
-
-                    result[shortcut] = BuildSnippet(code, literals); // later versions win
+                    try { AddSnippet(result, XDocument.Load(file)); }
+                    catch { /* skip malformed file */ }
                 }
-                catch { /* skip malformed files */ }
             }
         }
         return result;
+    }
+
+    /// <summary>Parses one snippet document and adds/overrides it in the map by shortcut.</summary>
+    static void AddSnippet(Dictionary<string, Snippet> result, XDocument doc)
+    {
+        XNamespace ns = "http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet";
+
+        var snippet = doc.Descendants(ns + "CodeSnippet").FirstOrDefault();
+        if (snippet == null) return;
+
+        var shortcut = snippet.Descendants(ns + "Shortcut").FirstOrDefault()?.Value?.Trim();
+        if (string.IsNullOrEmpty(shortcut)) return;
+
+        var literals = snippet.Descendants(ns + "Literal").ToDictionary(
+            l => l.Element(ns + "ID")?.Value      ?? "",
+            l => l.Element(ns + "Default")?.Value ?? "");
+
+        var code = snippet.Descendants(ns + "Code").FirstOrDefault()?.Value;
+        if (code == null) return;
+
+        result[shortcut] = BuildSnippet(code, literals);
     }
 
     /// <summary>
@@ -465,13 +601,17 @@ partial class MainForm : Form
         int firstLiteralStart = -1, firstLiteralLen = 0, endPos = -1;
         int last = 0;
 
-        foreach (Match m in Regex.Matches(raw, @"\$(\w+)\$"))
+        foreach (Match m in Regex.Matches(raw, @"\$(\w*)\$"))
         {
             sb.Append(raw, last, m.Index - last);
             last = m.Index + m.Length;
 
             var id = m.Groups[1].Value;
-            if (id == "end")
+            if (id.Length == 0)
+            {
+                sb.Append('$'); // "$$" is the snippet-format escape for a literal $
+            }
+            else if (id == "end")
             {
                 if (endPos < 0) endPos = sb.Length;
             }

@@ -1,4 +1,10 @@
-# Prompt for Claude — Continue the "SSMS Snippet Expander" Project
+# Prompt for Claude — Continue the "SSMS Snippet Expander" Project (v1 — superseded)
+
+> **⚠️ Superseded.** This is the original handoff prompt, kept for history. Use
+> [`CLAUDE_PROMPT_V2.md`](CLAUDE_PROMPT_V2.md) instead — it reflects the current code (embedded
+> snippets, atomic `SendInput`, caret positioning, `--debug` logging). For the full history and
+> session log see [`DEVELOPMENT.md`](DEVELOPMENT.md). The text below has been corrected for
+> accuracy but V2 is the one to paste.
 
 Paste everything below (from the `---` line down) into Claude as your message. It tells Claude
 what we're building, what already exists, every technical detail, and how to continue.
@@ -12,7 +18,7 @@ entire brief first, then wait for my specific request. Do not rewrite things tha
 
 I want **Redgate SQL Prompt–style snippet expansion in SQL Server Management Studio (SSMS) 22**:
 I type a short code and press **Tab**, and it expands to a full T-SQL statement. Example:
-`ssf` + Tab → `SELECT * FROM [TableName]`; `st100` + Tab → `SELECT TOP 100 * FROM [TableName]`.
+`ssf` + Tab → `SELECT * FROM ⎸ WITH (NOLOCK)`; `st100` + Tab → `SELECT TOP 100 * FROM [TableName]`.
 I do **not** own SQL Prompt and want this behavior for free.
 
 ## Critical constraint we already discovered
@@ -26,7 +32,9 @@ keyboard hook.** Do not suggest "just use SSMS snippets" — we proved that does
 ## What already exists
 
 ### 32 snippet XML files
-Path (physical, NOT the OneDrive-redirected Documents):
+They live in the repo under `snippets/*.snippet` and are **embedded into the exe**; at runtime the
+app also reads on-disk copies (which override/extend the built-ins) from the physical, NOT
+OneDrive-redirected, path:
 `C:\Users\<user>\Documents\SQL Server Management Studio 22\Snippets\My Shortcuts\*.snippet`
 Standard Microsoft Code Snippet format (`Format="1.0.0"`), with `<Shortcut>`, `<Literal>` defaults,
 and `<Code>` containing `$LiteralID$` placeholders plus `$end$`. Shortcuts include:
@@ -36,7 +44,8 @@ cv, cf, af, cte, tr, wl, ifex, ifnex, cdb, isnl, isn`.
 ### The expander app
 - Project: `C:\Users\<user>\source\repos\SsmsSnippetExpander\` — single-file .NET 8 WinForms tray
   app (`net8.0-windows`, `WinExe`, `AllowUnsafeBlocks=true` for source-generated `LibraryImport`).
-- Source: `Program.cs` (top-level statements + `partial class MainForm`).
+- Source: `Program.cs` (explicit `static class Program` with a `[STAThread] Main` + `partial class
+  MainForm` + a `record Snippet`; not top-level statements — the entry point needs `[STAThread]`).
 - Output: `bin\Release\net8.0-windows\SsmsSnippetExpander.exe`.
 
 How it works:
@@ -44,8 +53,9 @@ How it works:
 2. When the foreground process is SSMS (process name `SSMS`), it buffers typed letters/digits as
    the "current word."
 3. On **Tab**, if the buffer matches a shortcut, it: suppresses the Tab (`return 1`), saves the
-   clipboard, sets the expansion text, sends backspaces to erase the shortcut, sends `Ctrl+V` to
-   paste, then restores the clipboard after 600 ms.
+   clipboard, sets the expansion text, then sends backspaces + `Ctrl+V` as one atomic `SendInput`
+   batch, moves the caret to `$end$` (or selects the first literal) with Left / Shift+Left, and
+   restores the clipboard after ~600 ms.
 4. Runs invisibly with a system-tray icon (Show shortcuts / Reload / Exit).
 5. Writes a diagnostic log to `%TEMP%\SsmsSnippetExpander.log`.
 
@@ -88,13 +98,17 @@ click buffer resets in place. The diagnostic log confirmed the hook detects Tab 
 correctly.
 
 ## Known limitations / likely next requests
-- Expansion pastes literal defaults inline; it does **not** reposition the caret to `$end$` or let
-  me Tab between `$Literal$` fields (native menu insertion does). Improving caret/literal handling
-  is a probable next task.
+- The caret is repositioned to `$end$` and the first literal is selected, but it can **not** Tab
+  between multiple `$Literal$` fields (native menu insertion does). Full Tab-through is the main
+  remaining UX gap.
 - Buffer is a heuristic token tracker, not a real editor read.
-- Diagnostic logging is always on — gate behind a flag or strip for release.
-- No installer, not code-signed; runs from the build folder.
-- `keybd_event` is legacy; `SendInput` is the modern equivalent.
+- Clipboard restore is time-based (~600 ms) and text-only — racy if paste is slow or you copy
+  during the window.
+- No installer, not code-signed; runs from the build folder (`Install.ps1` handles per-user
+  copy/build/startup).
+
+Already done since this prompt was first written: `--debug`-gated logging, atomic `SendInput`
+(replacing `keybd_event`), and caret positioning at `$end$` / first-literal selection.
 
 ## My request
 <Describe what you want next — e.g. "add caret positioning at $end$", "let me Tab between literal

@@ -13,8 +13,8 @@ type a short code, press **Tab**, and have it expand to a full T-SQL statement. 
 
 | Shortcut | Expands to |
 |----------|-----------|
-| `ssf` | `SELECT * FROM [TableName]` |
-| `st100` | `SELECT TOP 100 * FROM [TableName]` |
+| `ssf` | `SELECT * FROM ⎸ WITH (NOLOCK)` (caret between `FROM` and `WITH`) |
+| `st100` | `SELECT TOP 100 * FROM [TableName]` (`TableName` selected) |
 
 These shortcuts (SSF, ST100, IJ, LOJ, etc.) originate from **Redgate SQL Prompt**, a paid SSMS
 add-in. The user does not have SQL Prompt and wanted the same behavior for free.
@@ -40,21 +40,26 @@ that installs a global keyboard hook and performs the expansion itself.
 
 ### 3.1 The `.snippet` files (32 of them)
 
-Location (physical, non-OneDrive path):
+The canonical copies live **in the repo** under `snippets/*.snippet` and are **embedded into the
+exe** (`<EmbeddedResource>` in the `.csproj`) so a standalone download works before anything is
+copied anywhere. At runtime the app also reads on-disk copies from SSMS's snippet folder (which
+override/extend the built-ins) — `Install.ps1` puts them there:
 ```
 C:\Users\<user>\Documents\SQL Server Management Studio 22\Snippets\My Shortcuts\*.snippet
 ```
 
-Each is standard Microsoft Code Snippet XML (`Format="1.0.0"`), e.g. `ssf.snippet`:
+Each is standard Microsoft Code Snippet XML (`Format="1.0.0"`). Two shapes are used:
+
+- **Literal + `$end$`** — e.g. `st100.snippet` (a `<Literal>` default that gets selected):
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet">
   <CodeSnippet Format="1.0.0">
     <Header>
-      <Title>SELECT * FROM</Title>
-      <Shortcut>ssf</Shortcut>
-      <Description>SELECT * FROM [table]</Description>
+      <Title>SELECT TOP 100</Title>
+      <Shortcut>st100</Shortcut>
+      <Description>SELECT TOP 100 * FROM [table]</Description>
       <Author>Custom</Author>
       <SnippetTypes>
         <SnippetType>Expansion</SnippetType>
@@ -68,18 +73,21 @@ Each is standard Microsoft Code Snippet XML (`Format="1.0.0"`), e.g. `ssf.snippe
           <Default>TableName</Default>
         </Literal>
       </Declarations>
-      <Code Language="SQL"><![CDATA[SELECT * FROM [$TableName$]$end$]]></Code>
+      <Code Language="SQL"><![CDATA[SELECT TOP 100 * FROM [$TableName$]$end$]]></Code>
     </Snippet>
   </CodeSnippet>
 </CodeSnippets>
 ```
 
+- **`$end$` only** — e.g. `ssf.snippet` has empty `<Declarations>` and
+  `<![CDATA[SELECT * FROM $end$ WITH (NOLOCK)]]>`, so the caret simply lands where `$end$` was.
+
 **Full shortcut list (32):**
 
 | Shortcut | Expansion |
 |---|---|
-| `ssf` | `SELECT * FROM [table]` |
-| `st10` / `st100` / `st1000` | `SELECT TOP N * FROM [table]` |
+| `ssf` | `SELECT * FROM ⎸ WITH (NOLOCK)` |
+| `st10` / `st100` / `st1000` | `SELECT TOP N * FROM [TableName]` |
 | `sc` | `SELECT COUNT(*) FROM` |
 | `sd` | `SELECT DISTINCT col FROM` |
 | `ij` | `INNER JOIN … ON` |
@@ -118,7 +126,9 @@ and substitutes each `$LiteralID$` with its `<Default>` value.
 - **Project:** `C:\Users\<user>\source\repos\SsmsSnippetExpander\`
 - **Type:** .NET 8 WinForms tray app (`net8.0-windows`, `WinExe`, `AllowUnsafeBlocks=true`
   because it uses source-generated `LibraryImport` P/Invoke).
-- **Single file:** `Program.cs` (top-level statements + `partial class MainForm`).
+- **Single file:** `Program.cs` — an explicit `static class Program` with a `[STAThread] Main`
+  (STA is required for the OLE clipboard; top-level statements can't mark the entry point
+  `[STAThread]`), a `partial class MainForm`, and a `sealed record Snippet`.
 - **Output:** `bin\Release\net8.0-windows\SsmsSnippetExpander.exe`
 
 **How it works:**
@@ -128,9 +138,11 @@ and substitutes each `$LiteralID$` with its `<Default>` value.
 3. When **Tab** is pressed and the buffer matches a known shortcut, it:
    - Suppresses the Tab (`return 1` from the hook),
    - Saves the clipboard, puts the expansion text on the clipboard,
-   - Sends `deleteCount` backspaces to erase the typed shortcut,
-   - Sends `Ctrl+V` to paste the expansion (handles newlines/brackets/Unicode reliably),
-   - Restores the previous clipboard after 600 ms.
+   - Sends `deleteCount` backspaces **and** `Ctrl+V` as **one atomic `SendInput` batch** (paste
+     handles newlines/brackets/Unicode reliably; batching stops a real keystroke landing mid-sequence),
+   - After ~70 ms, sends Left / Shift+Left as a second atomic batch to move the caret to `$end$`
+     (or select the first literal's default),
+   - Restores the previous clipboard after ~600 ms.
 4. Runs invisibly with a **system tray icon** (right-click: Show shortcuts / Reload / Exit).
 
 ---
@@ -184,8 +196,8 @@ and substitutes each `$LiteralID$` with its `<Default>` value.
 
 The app writes a log to `%TEMP%\SsmsSnippetExpander.log`, recording startup (hook handle +
 snippet count + keys), every Tab press in SSMS (the captured word + whether it matched), and each
-expansion attempt. This is how bugs #9 and #10 were pinpointed. **Consider removing or gating the
-logging behind a flag for a "release" build.**
+expansion attempt. This is how bugs #9 and #10 were pinpointed. Logging is **off by default**;
+run the exe with `--debug` to enable it.
 
 ---
 
@@ -244,15 +256,20 @@ literally named `df`), then `df` + Tab expands it. Undo with `Ctrl+Z`, or don't 
 
 ## 9. Known Limitations / Possible Future Work
 
-- **Expansion loses `$end$` caret positioning and tab-through of literals.** The app pastes the
-  expanded text with default literal values inline; it does not reposition the caret to `$end$`
-  or let you Tab between literals (native SSMS snippet insertion does, but only via the menu).
-  A future version could position the caret or select the first literal.
+- **No tab-through of multiple literals.** The caret jumps to (and selects) the *first*
+  literal's default, or lands at `$end$` — implemented via Left / Shift+Left after paste —
+  but it cannot Tab from one field to the next. That would require a real SSMS add-in.
 - **Buffer is a heuristic**, not a true editor-token reader. Idle-reset + mouse-reset cover the
   common desync cases, but rapid consecutive typing across a boundary can still mis-capture.
-- **Diagnostic logging is always on** — gate it behind a flag or remove for release.
+- **Clipboard restore is text-only** — an image or file list on the clipboard is lost when an
+  expansion fires (only text is saved/restored).
+- **Letter mapping assumes a QWERTY-style layout** (VK code ≈ ASCII); non-Latin layouts may
+  mis-capture the buffer.
 - **No installer / not signed** — runs from the build output folder.
-- **`keybd_event` is legacy** — `SendInput` is the modern equivalent (works fine as-is).
+
+Resolved since first writing: diagnostic logging is now **opt-in** (`--debug` flag), and
+`keybd_event` was replaced with a single batched **`SendInput`** call (atomic — user keystrokes
+can't interleave mid-expansion).
 
 ---
 
@@ -263,3 +280,84 @@ It contains: single-instance mutex, `MainForm` with keyboard + mouse LL hooks, c
 focus detection, clipboard-based paste expansion with retry + restore, idle/mouse buffer resets,
 a multi-path (`%USERPROFILE%\Documents` + OneDrive `MyDocuments`) snippet loader that parses the
 `.snippet` XML and substitutes `$Literal$` defaults, tray UI, and `%TEMP%` diagnostic logging.
+
+---
+
+## 11. Session Log
+
+### 2026-07-08 — Restored missing `AllowUnsafeBlocks`
+
+- **Task:** Ran `dotnet build SsmsSnippetExpander.csproj -c Release`.
+- **Symptom:** Build failed with `SYSLIB1062` and multiple `CS0227` (`Unsafe code may only
+  appear if compiling with /unsafe`), originating from the source-generated `LibraryImports.g.cs`
+  produced by the `[LibraryImport]` P/Invoke declarations.
+- **Root cause:** The `.csproj` was missing `<AllowUnsafeBlocks>true</AllowUnsafeBlocks>` — the
+  same issue documented as bug #2 above. The working tree had drifted from this doc; the setting
+  was no longer present in the project file.
+- **Fix:** Re-added `<AllowUnsafeBlocks>true</AllowUnsafeBlocks>` to the `<PropertyGroup>` in
+  `SsmsSnippetExpander.csproj` (right after `<ImplicitUsings>`).
+- **Result:** `dotnet build -c Release` succeeded (0 warnings, 0 errors). Output at
+  `bin\Release\net8.0-windows\SsmsSnippetExpander.dll`.
+
+### 2026-07-08 — Code review: hook-logic fixes + SendInput
+
+Code review pass over `Program.cs`; all fixes verified by a successful Release build.
+
+- **Alt+Tab triggered expansion** (worst bug): after typing a shortcut, Alt+Tab arrives as a
+  `WM_SYSKEYDOWN` Tab and matched the expansion branch — suppressing the app switch and
+  expanding. Ctrl/Alt chords (Ctrl+S, Ctrl+Z, Alt+Tab, …) now clear the buffer and pass through
+  (`LLKHF_ALTDOWN` flag + `GetAsyncKeyState(VK_CONTROL)`).
+- **Ctrl chords polluted the buffer:** Ctrl+S etc. appended the letter, corrupting the
+  backspace count for the next expansion. Covered by the same chord check.
+- **Shift keydown cleared the buffer** (typing any uppercase letter broke matching); modifier
+  keydowns (Shift/Ctrl/Alt L+R, CapsLock, Win) are now ignored entirely.
+- **Shift+top-row digit** types a symbol but buffered the digit — now resets the buffer.
+- **Shift+Tab** (unindent) no longer expands.
+- **Numpad digits** (VK 0x60–0x69) now feed the buffer, so `st100` works from the numpad.
+- **Stale "N snippets loaded" menu label** after Reload — now updated alongside tray text.
+- **`keybd_event` → batched `SendInput`:** backspaces + Ctrl+V (and the later caret-positioning
+  Left/Shift+Left sequence) are each sent as one atomic batch, so user keystrokes can't land in
+  the middle. Structs: `INPUT`/`KEYBDINPUT` + explicit-layout union incl. `MOUSEINPUT` for size.
+- **`$$` escape** in snippet `<Code>` now emits a literal `$` (regex `\$(\w*)\$`, empty id = `$`).
+- **Regression during the review (fixed):** `AllowUnsafeBlocks` was removed from the csproj as
+  "unused" — wrong; `[LibraryImport]` source-gen requires it (bug #2). Re-added; build green.
+
+### 2026-07-08 — F12 / Ctrl+F12 (tray app) + VSIX extension scaffold
+
+**Tray app v1.1.0** — new files `Navigation.cs`, `SqlObjectService.cs`, `ObjectExplorerNavigator.cs`:
+
+- **F12 in SSMS** scripts the table/view/proc/function under the caret into a new query window.
+  Flow: parse server+db from the SSMS window title → capture the word under the caret
+  (Ctrl+Right, Ctrl+Shift+Left, Ctrl+C — clipboard saved/restored) → resolve via
+  `sys.objects` (Microsoft.Data.SqlClient, Windows auth, `TrustServerCertificate`) →
+  modules scripted from `sys.sql_modules`, tables rebuilt from catalog views (columns,
+  identity, computed, defaults, collation, PK/UQ/FK, indexes) → clipboard + Ctrl+N + Ctrl+V
+  (new-window readiness detected by window-title change).
+- **Ctrl+F12** locates the object in Object Explorer via UI Automation (F8 first, then walk
+  Server → Databases → db → type folder; lazy nodes handled with polling). Best-effort.
+- Per-server connection overrides: `%APPDATA%\SsmsSnippetExpander\connections.json`
+  (`{"SERVER": "connection string"}`) for SQL logins.
+- csproj: `Microsoft.Data.SqlClient 5.2.2`, `FrameworkReference Microsoft.WindowsDesktop.App`
+  (for `System.Windows.Automation`), `extension\**` excluded from the SDK build.
+- Hook: F12/Ctrl+F12 intercepted (before the chord filter), `_navBusy` reentrancy guard,
+  `Balloon` made thread-safe.
+
+**VSIX extension scaffold** — `extension\` folder, targeting SSMS 22 (`Microsoft.VisualStudio.Ssms
+[22.0,)`, amd64), modeled on ssms-object-explorer-menu (tested on SSMS 22.x):
+
+- Same F12/Ctrl+F12 features in-process: DTE EditPoint for the caret word,
+  `ServiceCache.ScriptFactory.CurrentlyActiveWndConnectionInfo` for the real connection,
+  SMO `Script()` for CREATE, `CreateNewBlankScript` for the new window, and the actual
+  Object Explorer TreeView (reflection on `IObjectExplorerService.Tree`).
+- Requires Visual Studio + "Visual Studio extension development" workload to build —
+  see `extension\README.md`. NOT built by `dotnet build`; expect first-build friction
+  (undocumented SSMS-internal APIs).
+- **Tab-snippet expansion is also in-process** (`SnippetLibrary.cs` +
+  `TabExpansionFilter.cs`): a MEF `IVsTextViewCreationListener` adds an
+  `IOleCommandTarget` filter per editable view, intercepts `VSStd2K TAB`, replaces the
+  word before the caret via a real `ITextEdit`, and places the caret/selection
+  directly. Manifest gained a MefComponent asset. Snippets load from the same
+  Documents folders (no embedded built-ins in the extension).
+- Don't run the tray app and the extension simultaneously — both expand on Tab.
+- `Install.ps1` now stops a running tray instance before building (exe lock).
+- Once the extension proves out on SSMS 22, the tray app retires.

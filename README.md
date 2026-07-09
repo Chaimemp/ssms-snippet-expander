@@ -156,8 +156,16 @@ After editing, re-run `.\Install.ps1 -NoBuild` (or copy the file into
   sends backspaces to erase the shortcut, pastes with `Ctrl+V`, then sends
   Left / Shift+Left keystrokes to position the caret (or select the first field), and
   restores your previous clipboard.
-- Snippet files are loaded from both your physical `Documents` folder and a
-  OneDrive-redirected one, so it works regardless of Known Folder redirection.
+- The 32 built-in shortcuts are **embedded in the exe**, so it works out of the box. On top of
+  those, it loads `.snippet` files from both your physical `Documents` folder and a
+  OneDrive-redirected one (which override or extend the built-ins), so it works regardless of
+  Known Folder redirection.
+- **F12** on a table / view / procedure / function name scripts its CREATE into a new
+  query window. Connects with Windows auth to the server/database shown in the SSMS
+  title bar (per-server overrides: `%APPDATA%\SsmsSnippetExpander\connections.json`).
+- **Ctrl+F12** selects that object in Object Explorer (UI Automation, best-effort).
+- An experimental **in-process SSMS 22 extension** with the same F12 features lives in
+  `extension\` — see `extension\README.md` (requires Visual Studio to build).
 
 Diagnostic logging is **off by default**; run with `--debug` to write
 `%TEMP%\SsmsSnippetExpander.log` for troubleshooting.

@@ -1,6 +1,8 @@
 # Build output
 bin/
 obj/
+packages/
+*.vsix
 
 # Visual Studio / Rider
 .vs/
