@@ -29,9 +29,16 @@ For the latest state read the CURRENT STATE section of docs/CLAUDE_PROMPT_V3.md.
 - Keyboard-hook hot path must stay cheap — Windows silently drops slow LL hooks.
 - Tray app and extension must NEVER run simultaneously (both expand on Tab):
   `Stop-Process -Name SsmsSnippetExpander -Force -ErrorAction SilentlyContinue`
-- If `.git\index.lock` exists it's stale — delete it. This repo once had a corrupt
-  index (garbage UU entries); fix = `Remove-Item .git\index -Force; git reset`
-  (working tree was fine — don't use --hard without checking).
+- If `.git\index.lock` exists it's stale — delete it. If the index is corrupt
+  (`fatal: unknown index entry format …`, garbage UU entries), fix =
+  `Remove-Item .git\index -Force; git reset` (working tree is fine — don't use --hard).
+  ROOT CAUSE (diagnosed 2026-07-09, after 3 corruptions): the system gitconfig
+  (`C:\Program Files\Git\etc\gitconfig`) sets `core.fsmonitor = true` globally, so the
+  built-in fsmonitor daemon writes an index extension on Git 2.51/Windows. With multiple
+  concurrent git clients on this repo (VS Code, the Roslyn `Microsoft.CodeAnalysis.
+  LanguageServer`, and CLI git) a partially-written index corrupts. PREVENTION applied:
+  `git config --local core.fsmonitor false` + `core.untrackedCache false` for this repo.
+  Do NOT re-enable fsmonitor here. (Repo is NOT under OneDrive — that was ruled out.)
 - The SSMS-internal APIs (ServiceCache, IObjectExplorerService "Tree" reflection,
   SMO scripting, MEF Tab filter) are undocumented — compile success proves nothing;
   diagnose runtime failures against the real DLLs in the SsmsPath folder.

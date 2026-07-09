@@ -1,7 +1,9 @@
 # Prompt for Claude — Continue the "SSMS Snippet Expander" Project (v3)
 
 > Paste this whole file into a fresh Claude session (CLI or Cowork) to continue.
-> Supersedes CLAUDE_PROMPT_V2.md. Current as of 2026-07-09, commit `16b34b0`.
+> `CLAUDE.md` at the repo root is auto-loaded by Claude Code (stable project memory);
+> this file carries the latest session state.
+> Supersedes CLAUDE_PROMPT_V2.md. Current as of 2026-07-09, commit `865b97f`.
 
 ---
 
@@ -21,7 +23,7 @@ Shell is PowerShell. Use PowerShell syntax.
    Object Explorer TreeView, MEF Tab command filter). Builds clean; INSTALLED into
    SSMS 22 and commands VERIFIED. Functional testing in progress.
 
-## CURRENT STATE (2026-07-09, HEAD = 16b34b0 on main, pushed)
+## CURRENT STATE (2026-07-09, HEAD = 865b97f on main, pushed; working tree clean)
 
 - Tray app: `dotnet build -c Release` => 0 warnings / 0 errors.
 - Extension: builds clean via msbuild (exit 0), output
@@ -32,7 +34,8 @@ Shell is PowerShell. Use PowerShell syntax.
   1-based caret column); added Tools > "Reload Snippets" command (Commands.vsct cmdid
   0x0102, wired in SnippetExpanderPackage.cs, `SnippetLibrary.Reload()` returns the
   count); added `.claude/` to `.gitignore`.
-- **INSTALL RESOLVED.** The earlier double-click install NEVER deployed (Extensions
+- **INSTALL RESOLVED.** The earlier double-click install NEVER deployed — double-click
+  routes through VisualStudio.Launcher.vsix and silently no-ops for SSMS (Extensions
   folder had only cache files; DLL absent from disk; not in VS18 either). Fixed by
   installing SILENTLY with SSMS's OWN VSIXInstaller (exit 0):
   ```powershell
